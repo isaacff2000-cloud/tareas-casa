@@ -313,6 +313,26 @@ test('operaciones: no se repiten y el historial se rehace igual (al azar)', () =
   otra.cerrar();
 });
 
+test('catálogo: próxima vez de cada tarea y media semanal', () => {
+  const b = baseLista('2026-11-22');
+  ok(b, [
+    crear('diaria', ver({ puntos: 1, rep: sem({ dias: [1, 2, 3, 4, 5, 6, 7] }) })),
+    crear('quincenal', ver({ puntos: 4, rep: sem({ dias: [7], cada: 2, ancla: '2026-11-30' }) })),
+    crear('nevera', ver({ puntos: 3, rep: { tipo: 'mensual', orden: 1, diaSemana: 7 } })),
+    crear('suelta', ver({ rep: { tipo: 'una', fecha: '2026-11-26' } })),
+  ]);
+  assert.deepEqual(N.proximas(b.e, '2026-11-22'), { diaria: '2026-11-23', quincenal: '2026-12-06', nevera: '2026-12-06', suelta: '2026-11-26' });
+  // Lo hecho o saltado no cuenta como «próxima»
+  b.reloj.fijar('2026-11-23');
+  ok(b, [{ tipo: 'aparicion.hecha', aparicion: 'diaria|2026-11-23', hechaPor: ['a'], dia: '2026-11-23' }, { tipo: 'aparicion.saltar', aparicion: 'suelta|2026-11-26' }]);
+  const p = N.proximas(b.e, '2026-11-23');
+  assert.equal(p.diaria, '2026-11-24');
+  assert.equal(p.suelta, undefined);
+  // Semanas: 7 + 2 (suelta saltada no) · 7 + 4 + 3 · 7 · 7 + 4 → media de las 4 primeras con tareas
+  assert.equal(N.mediaSemanal(b.e, '2026-11-23'), Math.round((7 + 14 + 7 + 11) / 4));
+  assert.deepEqual(['semanal', 'nsemanas', 'mensual', 'una'], [sem(), sem({ cada: 2 }), { tipo: 'mensual', dia: 1 }, { tipo: 'una' }].map(N.grupoRep));
+});
+
 test('lo que recibe el móvil: sin cuentas de Tailscale y solo las semanas recientes', () => {
   const b = baseLista('2026-11-24');
   ok(b, crear('t', ver({ rep: sem({ dias: [2] }) }), { inicio: '2026-11-17' }));

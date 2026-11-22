@@ -521,3 +521,34 @@ export const TIPICAS = [
   { nombre: 'Planchar', emoji: '👔', puntos: 3, dias: [7] },
   { nombre: 'Limpiar la nevera', emoji: '🧊', puntos: 5, mensual: { orden: 1, diaSemana: 6 } },
 ];
+
+/**
+ * Próxima vez que toca cada tarea a partir de `dia` (sin contar lo ya hecho o saltado), mirando `semanas`
+ * semanas hacia delante: { idTarea: fecha }.
+ */
+export function proximas(e, dia, semanas = 14) {
+  const r = {};
+  let lunes = lunesDe(dia);
+  for (let i = 0; i < semanas; i++, lunes = sumarDias(lunes, 7)) {
+    for (const a of aparicionesSemana(e, lunes)) {
+      if (r[a.tarea] || a.hecha || a.saltada || a.fecha < dia) continue;
+      r[a.tarea] = a.fecha;
+    }
+  }
+  return r;
+}
+
+/** Puntos planificados de media en las próximas `semanas` semanas que tengan alguna tarea. */
+export function mediaSemanal(e, dia, semanas = 4) {
+  let lunes = lunesDe(dia), suma = 0, n = 0;
+  for (let i = 0; i < semanas + 4 && n < semanas; i++, lunes = sumarDias(lunes, 7)) {
+    const aps = aparicionesSemana(e, lunes).filter((a) => !a.saltada);
+    if (!aps.length) continue;
+    suma += aps.reduce((s, a) => s + a.puntos, 0);
+    n++;
+  }
+  return n ? Math.round(suma / n) : 0;
+}
+
+/** Grupo del catálogo de una regla: 'semanal' (todas las semanas) · 'nsemanas' · 'mensual' · 'una' */
+export const grupoRep = (rep) => (rep.tipo === 'semanal' ? (rep.cada === 1 ? 'semanal' : 'nsemanas') : rep.tipo);

@@ -184,3 +184,16 @@ label textarea { margin-top: 6px; text-transform: none; letter-spacing: 0; }
 .puntos-campo > .chips { flex: 1 1 auto; flex-wrap: nowrap; gap: 6px; }
 .puntos-campo > .chips .chip { padding: 8px 0; min-width: 40px; justify-content: center; }
 .puntos-campo > input { flex: 0 0 72px; width: 72px; }
+.fila.pulsable { cursor: pointer; color: inherit; font: inherit; }
+.fila.cat { align-items: center; gap: 10px; }
+.fila.cat .em { font-size: 22px; width: 30px; text-align: center; flex: none; }
+.fila.cat .texto { gap: 3px; }
+.fila.cat .texto strong { white-space: normal; }
+.pts small { font-weight: 500; opacity: .8; }
+.semana7 { display: inline-flex; gap: 3px; }
+.semana7 i { font-style: normal; font-size: 11px; width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center; background: var(--chip); color: var(--suave); }
+.semana7 i.si { background: var(--acento); color: var(--acento-tinta); font-weight: 700; }
+.tarjeta .par + .par { margin-top: 6px; }
+.par { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.resumen .par span:first-child { color: var(--suave); }
+.resumen .par b { font-size: 18px; }

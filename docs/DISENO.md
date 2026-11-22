@@ -153,9 +153,9 @@ inicial además del color).
   planificados frente a las metas. Al tocar una tarea, una hoja con: hecha · cambiar día/hora/persona solo
   esta vez · saltar esta semana · devolver (si la hizo el otro) · editar la tarea. Botón ＋ para una tarea
   nueva en el día elegido.
-- **Tareas** (el catálogo). Las tareas que se repiten, agrupadas (semanales · cada N semanas · mensuales ·
-  sueltas pendientes), con sus días, persona y puntos. Crear, editar «desde esta semana», archivar y ver las
-  archivadas. La primera vez, la lista de tareas típicas para empezar.
+- **Tareas** (el resumen, hecho en la fase 1.1). Las tareas agrupadas (semanales con su rejilla L–D · cada N
+  semanas · mensuales · sueltas pendientes), con sus días, persona, puntos y la próxima vez que tocan. Editar
+  «desde esta semana», reasignar y recuperar las quitadas. En la fase 2, la lista de tareas típicas para empezar.
 - **Puntos**. La semana en curso con detalle (por persona y por tarea) y el **historial** de las últimas
   semanas: puntos, ✓/✗ de domicilio y salir, y el reparto Isaac/Ana. Las semanas cerradas, con sus metas de
   entonces.
@@ -265,7 +265,13 @@ puntos, metas y semáforo; servidor, identidad, sin cobertura; pestañas **Hoy**
 instalador (probado aquí con un portátil simulado: instalación, segunda pasada, puerto 10000 ocupado y una
 app vecina que deja de publicarse). *Se puede usar* para toda la rutina semanal. **Aquí se instala.**
 
-**Fase 2 — «Catálogo e historial».** Pestañas **Tareas** (con las tareas típicas para empezar) y **Puntos** (historial); aviso de semana que no
+**Fase 1.1 — «Resumen de tareas» (22-nov, a petición tras cargar las tareas iniciales).** Pestaña **Tareas**
+adelantada de la fase 2: todo lo programado agrupado por frecuencia (cada semana con su rejilla L–D, cada N
+semanas, una vez al mes, sueltas pendientes), a quién le toca, puntos por vez y por semana, **próxima vez** que
+toca, media de puntos planificados frente a las metas, filtro Todas/Mías/del otro, editar o reasignar desde
+ahí y recuperar las quitadas. Las 22 tareas iniciales se cargaron como datos locales (no están en el repositorio).
+
+**Fase 2 — «Historial y avisos».** Lista de **tareas típicas** para empezar en la pestaña Tareas; pestaña **Puntos** (historial); aviso de semana que no
 llega a la meta; **notificaciones push** (apartado 7 bis); «Deshacer» en todo; CSV y descarga de copia.
 **Llega sola al portátil** por AutoUpdate: no hay que volver a PuTTY. Lo único que tendréis que hacer es
 pulsar «Activar avisos» en cada móvil.

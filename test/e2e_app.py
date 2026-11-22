@@ -136,6 +136,31 @@ async def main():
                 comprobar(r['resultados'][0].get('repetida'), 'La misma operación enviada dos veces se aplica una sola vez')
                 comprobar(await esperar(lambda: tarea(uno, 'Basura').count()), 'Las tareas nuevas llegan solas')
                 comprobar(await tarea(uno, 'Basura').first.locator('.atr').count() == 1, 'La basura del lunes sale como atrasada')
+
+                print('Resumen de tareas')
+                api('/api/ops', {'ops': [{'id': 'cnevera', 'tipo': 'tarea.crear', 'tarea': {'id': 'nevera', 'nombre': 'Nevera', 'emoji': '🧊'}, 'inicio': L,
+                                          'version': {'puntos': 3, 'quien': 'ambos', 'hora': None, 'rep': {'tipo': 'mensual', 'orden': 1, 'diaSemana': 7}}}]})
+                await dos.get_by_role('button', name='Tareas', exact=True).click()
+                comprobar(await esperar(lambda: dos.locator('h2.seccion', has_text='Una vez al mes · 1').count()), 'La pestaña Tareas agrupa por frecuencia (una vez al mes)')
+                fila = dos.get_by_role('button', name='Editar Nevera')
+                texto_fila = await fila.inner_text()
+                comprobar('El primer domingo de cada mes' in texto_fila and 'próxima: domingo 6 dic' in texto_fila, 'Dice qué día del mes toca y cuándo es la próxima')
+                semanal = await dos.get_by_role('button', name='Editar Limpiar el baño').inner_text()
+                comprobar('toca hoy' in semanal, 'Las semanales dicen cuándo toca')
+                comprobar(await dos.locator('h2.seccion', has_text='Cada semana · 4').count() == 1, 'Cuenta las semanales (4)')
+                await dos.get_by_role('button', name='Mías').click()
+                comprobar(await esperar(lambda: hay(dos.get_by_role('button', name='Editar Basura'), 0)), 'Con «Mías», Dos no ve la basura de Uno')
+                comprobar(await dos.get_by_role('button', name='Editar Limpiar el baño').count() == 1, 'Pero sí la suya')
+                await dos.get_by_role('button', name='Todas').click()
+                await fila.click()
+                await dos.locator('.hoja').get_by_role('button', name='Dos (tú)').click()
+                await dos.get_by_role('button', name='Guardar').click()
+                def de_dos():
+                    v = api('/api/estado')['datos']['tareas']['nevera']['versiones']
+                    return v[max(v)]['quien'] == 'b'
+                comprobar(await esperar(de_dos), 'Desde el resumen se reasigna una tarea')
+                comprobar(await esperar(lambda: hay(dos.get_by_role('button', name='Editar Nevera').locator('.av.b'), 1)), 'Y el resumen lo refleja')
+                await dos.get_by_role('button', name='Hoy', exact=True).click()
                 horas = await uno.locator('.dia, section').filter(has_text='Cena').locator('.tarea strong').all_inner_texts()
                 comprobar('Cena' in horas, 'La cena de las 21:00 sale hoy')
 

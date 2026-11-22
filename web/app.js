@@ -187,6 +187,60 @@ function Semana({ e, yo, dia, lunes, setLunes, abrir, nueva }) {
   </div>`;
 }
 
+/* ---------- Tareas: todo lo que se repite, de un vistazo ---------- */
+const GRUPOS = [
+  ['semanal', 'Cada semana'], ['nsemanas', 'Cada 2 semanas o más'], ['mensual', 'Una vez al mes'], ['una', 'De un solo día'],
+];
+function Catalogo({ e, yo, dia, editar }) {
+  const [filtro, setFiltro] = useGuardado('tareas.filtro', 'todas');
+  const [verQuitadas, setVerQuitadas] = useState(false);
+  const lunes = N.lunesDe(dia);
+  const prox = N.proximas(e, dia);
+  const toca = (t) => filtro === 'todas' || N.destinatarios(t.v.quien).includes(filtro === 'mias' ? yo : N.otro(yo));
+  const repetidas = N.tareasRepetidas(e, lunes).filter(toca);
+  // Las de un solo día: solo las que aún tienen algo pendiente
+  const sueltas = Object.values(e.tareas).filter((t) => !t.hasta && prox[t.id]).map((t) => ({ ...t, v: N.versionVigente(t, lunes) })).filter((t) => t.v && t.v.rep.tipo === 'una' && toca(t));
+  const todas = [...repetidas, ...sueltas];
+  const quitadas = N.tareasRepetidas(e, lunes, { archivadas: true });
+  const porSemana = (t) => (t.v.rep.tipo === 'semanal' ? (t.v.puntos * t.v.rep.dias.length) / t.v.rep.cada : null);
+  const metas = N.metasDe(e, lunes);
+  const media = N.mediaSemanal(e, dia);
+  const orden = (x, y) => (prox[x.id] || '9').localeCompare(prox[y.id] || '9') || x.nombre.localeCompare(y.nombre, 'es');
+  const fila = (t) => {
+    const r = t.v.rep, ps = porSemana(t);
+    return html`<button class="fila pulsable cat" key=${t.id} onClick=${() => editar(e.tareas[t.id])} aria-label=${'Editar ' + t.nombre}>
+      <span class="em" aria-hidden="true">${t.emoji}</span>
+      <span class="texto"><strong>${t.nombre}</strong>
+        ${r.tipo === 'semanal' && r.cada === 1
+          ? html`<span class="semana7" aria-label=${N.textoRep(r)}>${N.DIAS_CORTOS.map((d, i) => html`<i key=${d} class=${r.dias.includes(i + 1) ? 'si' : ''}>${d}</i>`)}</span>`
+          : html`<small class="cap2">${r.tipo === 'una' ? N.etiquetaDiaLarga(r.fecha) : N.textoRep(r)}</small>`}
+        <small>${t.v.hora ? `🕒 ${t.v.hora} · ` : ''}${prox[t.id] ? (prox[t.id] === dia ? 'toca hoy' : 'próxima: ' + N.etiquetaDia(prox[t.id]) + (N.lunesDe(prox[t.id]) !== lunes ? ' ' + N.aFecha(prox[t.id]).toLocaleDateString('es-ES', { month: 'short' }).replace('.', '') : '')) : 'sin fecha próxima'}</small>
+      </span>
+      <${Av} e=${e} q=${t.v.quien} />
+      <span class="pts" title=${ps && ps !== t.v.puntos ? `${t.v.puntos} cada vez, ${Math.round(ps * 10) / 10} a la semana` : `${t.v.puntos} cada vez`}>${t.v.puntos}${ps && ps !== t.v.puntos ? html`<small> × ${Math.round((ps / t.v.puntos) * 10) / 10}</small>` : ''}</span>
+    </button>`;
+  };
+  return html`<div>
+    <section class="tarjeta resumen">
+      <div class="par"><span>Tareas${filtro !== 'todas' ? ' (con este filtro)' : ''}</span><b>${todas.length}</b></div>
+      <div class="par"><span>Puntos por semana, de media</span><b>${media}</b></div>
+      <div class="par"><span>Metas: 🛵 ${metas.domicilio} · 🍻 ${metas.salir} · mínimo ${metas.minimo} c/u</span></div>
+      ${media > 0 && html`<p class="nota">Para salir hace falta hacer el ${Math.round((metas.salir / media) * 100)} % de lo planificado; para pedir a domicilio, el ${Math.round((metas.domicilio / media) * 100)} %.</p>`}
+    </section>
+    <${Filtro} filtro=${filtro} poner=${setFiltro} e=${e} yo=${yo} />
+    ${!todas.length && html`<p class="vacio">${Object.keys(e.tareas).length ? 'Ninguna con este filtro.' : 'Aún no hay tareas. Pulsa ＋ para crear la primera.'}</p>`}
+    ${GRUPOS.map(([g, titulo]) => {
+      const del = todas.filter((t) => N.grupoRep(t.v.rep) === g).sort(g === 'semanal' ? (x, y) => y.v.rep.dias.length - x.v.rep.dias.length || x.nombre.localeCompare(y.nombre, 'es') : orden);
+      return del.length > 0 && html`<h2 class="seccion" key=${g}>${titulo} · ${del.length}</h2><section class="tarjeta lista">${del.map(fila)}</section>`;
+    })}
+    <p class="nota">Toca una tarea para cambiarla (días, persona, puntos…) desde esta semana o la siguiente. Para cambiar solo una vez, hazlo desde Hoy o Semana.</p>
+    ${quitadas.length > 0 && html`<button class="enlace" onClick=${() => setVerQuitadas(!verQuitadas)}>Tareas quitadas (${quitadas.length})</button>
+      ${verQuitadas && html`<section class="tarjeta lista">${quitadas.map((t) => html`<div class="fila" key=${t.id}>
+        <span class="em" aria-hidden="true">${t.emoji}</span><div class="texto"><strong>${t.nombre}</strong><small>quitada desde la semana del ${N.etiquetaSemana(t.hasta)}</small></div>
+        <button class="chip" onClick=${() => hacer({ tipo: 'tarea.recuperar', tarea: t.id })}>Recuperar</button></div>`)}</section>`}`}
+  </div>`;
+}
+
 /* ---------- Hoja de una aparición ---------- */
 function HojaAparicion({ e, yo, dia, clave, cerrar, editar }) {
   const lunesAp = N.lunesDe(N.partirClave(clave).fecha);
@@ -381,7 +435,7 @@ function Alta({ personas }) {
 }
 
 /* ---------- App ---------- */
-const PESTANAS = [['hoy', '☀️', 'Hoy'], ['semana', '📅', 'Semana']];
+const PESTANAS = [['hoy', '☀️', 'Hoy'], ['semana', '📅', 'Semana'], ['tareas', '📋', 'Tareas']];
 
 function App() {
   const s = useAlmacen();
@@ -415,6 +469,7 @@ function App() {
     <main>
       ${tab === 'hoy' && h(Hoy, { e, yo, dia, abrir })}
       ${tab === 'semana' && h(Semana, { e, yo, dia, lunes, setLunes, abrir, nueva })}
+      ${tab === 'tareas' && h(Catalogo, { e, yo, dia, editar: (t) => setHoja({ tipo: 'tarea', tarea: t, lunesVista: N.lunesDe(dia), fechaInicial: dia }) })}
     </main>
     ${N.semanaAbierta(lunesVista, dia) && html`<button class="mas" aria-label="Nueva tarea" onClick=${() => nueva(fechaNueva)}>＋</button>`}
     <nav class="pestanas">${PESTANAS.map(([id, ico, nom]) => html`<button key=${id} class=${tab === id ? 'activa' : ''} aria-current=${tab === id ? 'page' : null}

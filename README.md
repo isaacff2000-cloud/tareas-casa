@@ -12,6 +12,9 @@ Este repositorio solo tiene código: ningún dato, correo ni clave. Los datos vi
 - **Hoy:** lo que toca hoy, lo atrasado de la semana y lo de mañana, con casillas grandes.
 - **Semana:** los siete días (lunes a domingo) para planificar; cada tarea con su día, su hora si la
   tiene, a quién le toca (una persona, cualquiera o los dos) y sus puntos.
+- **Tareas:** resumen de todo lo programado, agrupado por frecuencia (cada semana, cada N semanas, una vez
+  al mes, de un solo día), con sus días, a quién le toca, sus puntos y cuándo toca la próxima vez; desde ahí
+  se reasignan o cambian. Incluye los puntos planificados por semana frente a las metas.
 - **Tareas que se repiten solas:** ciertos días de cada semana, cada N semanas o una vez al mes
   (un día del mes o «el primer sábado»). Cambiarlas vale desde la semana que elijas; mover, cambiar la
   hora o la persona, o saltar una tarea vale **solo esa vez**.
