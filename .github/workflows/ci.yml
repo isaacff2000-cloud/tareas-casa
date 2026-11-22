@@ -1,0 +1,52 @@
+name: Pruebas e imagen
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+  packages: write
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm test
+      - name: Sin datos ni claves en el repositorio
+        run: bash deploy/comprobar_limpio.sh
+      - name: Scripts de shell válidos
+        run: bash -n deploy/instalar.sh deploy/comprobar_limpio.sh
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: La app en dos móviles (Playwright)
+        run: |
+          pip install 'playwright==1.*' >/dev/null
+          python -m playwright install --with-deps chromium >/dev/null
+          python test/e2e_app.py
+  imagen:
+    needs: pruebas
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Construir, probar y publicar
+        run: |
+          IMG=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/tareas-casa
+          VER=$(node -p "require('./package.json').version")-${GITHUB_SHA::7}
+          docker build -f deploy/Containerfile --build-arg VERSION=$VER \
+            --label org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }} \
+            -t $IMG:latest -t $IMG:$VER .
+          # La imagen arranca con un sistema de archivos de solo lectura, como en el portátil
+          mkdir -m 777 datos-prueba
+          docker run -d --name prueba --read-only --cap-drop ALL -v "$PWD/datos-prueba:/datos" -p 127.0.0.1:8789:8789 $IMG:latest
+          for i in $(seq 1 30); do curl -fs http://127.0.0.1:8789/api/salud && break; sleep 1; done
+          curl -fs http://127.0.0.1:8789/api/salud | grep -q "\"version\":\"$VER\""
+          curl -fsI http://127.0.0.1:8789/ | grep -qi content-security-policy
+          docker rm -f prueba
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker push $IMG:latest
+          docker push $IMG:$VER

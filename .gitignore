@@ -1,0 +1,9 @@
+node_modules/
+datos/
+*.db
+*.db-*
+*.xlsx
+*.csv
+.env
+vapid*.json
+__pycache__/

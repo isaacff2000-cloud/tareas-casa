@@ -1,0 +1,17 @@
+{
+  "name": "Tareas de casa",
+  "short_name": "Tareas",
+  "description": "Tareas de casa a dos, con puntos para desbloquear salidas",
+  "lang": "es",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f5f8",
+  "theme_color": "#5a4fcf",
+  "icons": [
+    { "src": "/iconos/icono-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/iconos/icono-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/iconos/icono-mascara.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

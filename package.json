@@ -1,0 +1,13 @@
+{
+  "name": "tareas-casa",
+  "version": "0.1.0",
+  "description": "Tareas de casa: calendario semanal de tareas y puntos en un servidor de casa",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/cli.js servir",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
+  }
+}

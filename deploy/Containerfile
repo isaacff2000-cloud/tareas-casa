@@ -1,0 +1,14 @@
+FROM docker.io/library/node:22-alpine
+RUN apk add --no-cache tzdata
+ENV TZ=Europe/Madrid NODE_ENV=production TAREAS_DATOS=/datos HOST=0.0.0.0 PUERTO=8789
+WORKDIR /app
+COPY package.json ./
+COPY src ./src
+COPY web ./web
+ARG VERSION=dev
+ENV TAREAS_VERSION=$VERSION
+RUN mkdir -p /datos && chown node:node /datos
+USER node
+EXPOSE 8789
+HEALTHCHECK --interval=5m --timeout=10s CMD wget -qO- http://127.0.0.1:8789/api/salud >/dev/null || exit 1
+CMD ["node", "--disable-warning=ExperimentalWarning", "src/cli.js", "servir"]

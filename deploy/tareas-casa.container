@@ -1,0 +1,30 @@
+# Servicio de Podman (quadlet) para el usuario. Lo instala deploy/instalar.sh en
+# ~/.config/containers/systemd/tareas-casa.container   (convive con menu-casa y gastos-casa: otro nombre y otro puerto)
+[Unit]
+Description=Tareas de casa (servidor de casa)
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=ghcr.io/IMAGEN_PROPIETARIO/tareas-casa:latest
+ContainerName=tareas-casa
+# Se actualiza solo cuando hay versión nueva (podman-auto-update.timer)
+AutoUpdate=registry
+# Solo dentro del portátil: Tailscale lo publica con HTTPS (puerto 10000) para vuestros dispositivos
+PublishPort=127.0.0.1:8789:8789
+Volume=%h/.local/share/tareas-casa:/datos:Z
+UserNS=keep-id:uid=1000,gid=1000
+ReadOnly=true
+NoNewPrivileges=true
+DropCapability=ALL
+HealthCmd=wget -qO- http://127.0.0.1:8789/api/salud
+HealthInterval=5m
+HealthOnFailure=kill
+
+[Service]
+Restart=always
+RestartSec=10
+TimeoutStartSec=600
+
+[Install]
+WantedBy=default.target
