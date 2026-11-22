@@ -4,7 +4,10 @@ Tercera app de casa, con el mismo sistema que **menu-casa** y **gastos-casa**: u
 portátil y una app instalable en los móviles, sin depender de Google ni de nadie.
 Estado (22-nov-2026): **fase 1 construida, probada y publicada.** Repositorio público
 `isaacff2000-cloud/tareas-casa`; GitHub pasó las 16 pruebas, la prueba con dos móviles (38 comprobaciones) y
-construyó la imagen (paquete ya público). Pendiente: instalarla en el portátil desde PuTTY. Avisos push, en la fase 2.
+construyó la imagen (paquete ya público). **Instalada en el portátil el 22-nov a las 14:29** en el puerto 10000
+de Tailscale; el instalador comprobó antes y después que menú (443) y gastos (8443) siguen respondiendo y
+publicados, sin reiniciarlos, y ya hizo la primera copia. Pendiente: que cada uno elija «Soy …» en su móvil
+(Ana, en Safari) y la fase 2 (catálogo, historial y avisos push).
 Modelo principal: `gastos-casa` (versión con carpetas y arrastre). Se copia su arquitectura y su forma de
 trabajar, no su contenido.
 
