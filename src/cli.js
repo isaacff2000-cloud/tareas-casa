@@ -13,6 +13,8 @@ import { DatabaseSync } from 'node:sqlite';
 import { Base } from './db.js';
 import { crearServidor } from './servidor.js';
 import { programar, hacerCopias } from './copias.js';
+import { Cartero } from './avisos.js';
+import { clavesVapid } from './webpush.js';
 import { hoy, lunesDe, resumenSemana, nombre } from './nucleo.js';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -20,6 +22,8 @@ const DATOS = process.env.TAREAS_DATOS || join(RAIZ, 'datos');
 const RUTA_DB = join(DATOS, 'tareas.db');
 const COPIAS = join(DATOS, 'copias');
 const VERSION = process.env.TAREAS_VERSION || JSON.parse(readFileSync(join(RAIZ, 'package.json'), 'utf8')).version;
+// Quién envía los avisos (lo pide el estándar VAPID; Apple exige una dirección https o mailto)
+const SUJETO = process.env.TAREAS_SUJETO || 'https://github.com/isaacff2000-cloud/tareas-casa';
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 
 const args = process.argv.slice(2);
@@ -33,7 +37,13 @@ const ordenes = {
     const base = new Base(RUTA_DB, fijo ? { reloj: () => ({ dia: fijo }) } : {});
     const puerto = Number(process.env.PUERTO || 8789);
     const host = process.env.HOST || '127.0.0.1';
-    const s = crearServidor({ base, carpetaWeb: join(RAIZ, 'web'), carpetaTmp: join(DATOS, 'tmp'), version: VERSION, log, pruebas });
+    // Avisos push: claves propias del portátil, guardadas junto a los datos (nunca en el repositorio)
+    let cartero = null;
+    try {
+      cartero = new Cartero({ base, claves: clavesVapid(join(DATOS, 'vapid.json')), sujeto: SUJETO, log });
+      if (!fijo) cartero.iniciar(); // con el día fijado (pruebas) no se programan recordatorios
+    } catch (e) { log('Los avisos push no están disponibles: ' + e.message); }
+    const s = crearServidor({ base, carpetaWeb: join(RAIZ, 'web'), carpetaTmp: join(DATOS, 'tmp'), version: VERSION, log, pruebas, cartero });
     if (pruebas) log(`AVISO: modo de pruebas (acepta la cabecera x-quien${fijo ? ', hoy = ' + fijo : ''}). No usar en el servicio.`);
     programar({ base, carpetaCopias: COPIAS, log });
     s.listen(puerto, host, () => log(`Tareas de casa ${VERSION} en http://${host}:${puerto}`));
@@ -67,6 +77,8 @@ const ordenes = {
     try {
       const [r] = base.aplicar([{ tipo: 'persona.desligar', persona: p }], { por: 'sistema' });
       if (!r.ok) throw new Error(r.error);
+      // Sus móviles dejan de recibir los avisos de ese hueco (quien lo elija los activará en los suyos)
+      for (const s of base.suscripciones(p)) base.borrarSuscripcion(s.endpoint);
       log(`Hecho: ${p} puede volver a elegir quién es desde su móvil. Reinicia el servicio si está en marcha.`);
     } finally { base.cerrar(); }
   },

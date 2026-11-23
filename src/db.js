@@ -19,6 +19,30 @@ const VERSIONES = [
      tipo TEXT NOT NULL,
      datos TEXT NOT NULL              -- JSON con el resto de la operación
    );`,
+  // Avisos push. Las suscripciones son de cada aparato: no forman parte del historial compartido.
+  `CREATE TABLE suscripcion (
+     endpoint TEXT PRIMARY KEY,       -- dirección del servicio de avisos del móvil (Apple o Google)
+     persona TEXT NOT NULL,           -- a | b
+     p256dh TEXT NOT NULL,
+     auth TEXT NOT NULL,
+     dispositivo TEXT,
+     creado TEXT NOT NULL,
+     fallos INTEGER NOT NULL DEFAULT 0
+   );
+   CREATE TABLE aviso (
+     clave TEXT PRIMARY KEY,          -- p. ej. hoy|a|2026-11-25: así nunca se repite, ni tras un reinicio
+     persona TEXT NOT NULL,
+     tipo TEXT NOT NULL,              -- hoy | hora | puntos | manana | devuelta
+     titulo TEXT NOT NULL,
+     cuerpo TEXT NOT NULL,
+     aparicion TEXT,                  -- para comprobar justo antes de enviar que sigue haciendo falta
+     desde TEXT NOT NULL,             -- no antes de (las devoluciones de noche esperan a las 08:00)
+     caduca TEXT,                     -- si no se pudo enviar antes, ya no se manda
+     creado TEXT NOT NULL,
+     enviado TEXT,
+     resultado TEXT
+   );
+   CREATE INDEX aviso_pendiente ON aviso (enviado, desde);`,
 ];
 
 export const ahora = () => new Date().toISOString();
@@ -92,13 +116,38 @@ export class Base {
         try { aplicarOp(this.e, op); } catch (err) { this.recargar(); throw err; }
         this.seq = seq;
         res.push({ id, ok: true });
-        setImmediate(() => this.avisos.emit('cambio', { seq, tipo: op.tipo, por }));
+        setImmediate(() => this.avisos.emit('cambio', { seq, tipo: op.tipo, por, op }));
       } catch (err) {
         res.push({ id, ok: false, error: err instanceof ErrorOp ? err.message : 'Error interno: ' + err.message });
       }
     }
     return res;
   }
+
+  /* ---------- Avisos push ---------- */
+  suscripciones(persona = null) {
+    return persona ? this.db.prepare('SELECT * FROM suscripcion WHERE persona = ?').all(persona) : this.db.prepare('SELECT * FROM suscripcion').all();
+  }
+  guardarSuscripcion({ endpoint, persona, p256dh, auth, dispositivo = null }) {
+    this.db.prepare(`INSERT INTO suscripcion (endpoint, persona, p256dh, auth, dispositivo, creado) VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(endpoint) DO UPDATE SET persona = excluded.persona, p256dh = excluded.p256dh, auth = excluded.auth, dispositivo = excluded.dispositivo, fallos = 0`)
+      .run(endpoint, persona, p256dh, auth, dispositivo, ahora());
+  }
+  borrarSuscripcion(endpoint, persona = null) {
+    return persona ? this.db.prepare('DELETE FROM suscripcion WHERE endpoint = ? AND persona = ?').run(endpoint, persona).changes
+      : this.db.prepare('DELETE FROM suscripcion WHERE endpoint = ?').run(endpoint).changes;
+  }
+  falloSuscripcion(endpoint) { this.db.prepare('UPDATE suscripcion SET fallos = fallos + 1 WHERE endpoint = ?').run(endpoint); }
+  okSuscripcion(endpoint) { this.db.prepare('UPDATE suscripcion SET fallos = 0 WHERE endpoint = ?').run(endpoint); }
+  /** Apunta un aviso; si ya existía esa clave (ya se mandó o está esperando), no hace nada. */
+  encolarAviso({ clave, persona, tipo, titulo, cuerpo, aparicion = null, desde, caduca = null }) {
+    return this.db.prepare('INSERT OR IGNORE INTO aviso (clave, persona, tipo, titulo, cuerpo, aparicion, desde, caduca, creado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(clave, persona, tipo, titulo, cuerpo, aparicion, desde, caduca, ahora()).changes > 0;
+  }
+  avisosPorEnviar(cuando) { return this.db.prepare('SELECT * FROM aviso WHERE enviado IS NULL AND desde <= ? ORDER BY desde, clave').all(cuando); }
+  marcarAviso(clave, resultado, cuando = ahora()) { this.db.prepare('UPDATE aviso SET enviado = ?, resultado = ? WHERE clave = ?').run(cuando, resultado, clave); }
+  ultimosAvisos(limite = 50) { return this.db.prepare('SELECT * FROM aviso ORDER BY creado DESC LIMIT ?').all(limite); }
+  podarAvisos(antesDe) { this.db.prepare('DELETE FROM aviso WHERE creado < ?').run(antesDe); }
 
   /** Copia consistente de la base en `destino` (VACUUM INTO). */
   copia(destino) {

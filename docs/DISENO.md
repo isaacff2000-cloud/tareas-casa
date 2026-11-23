@@ -2,12 +2,12 @@
 
 Tercera app de casa, con el mismo sistema que **menu-casa** y **gastos-casa**: un servidor en el
 portátil y una app instalable en los móviles, sin depender de Google ni de nadie.
-Estado (22-nov-2026): **fase 1 construida, probada y publicada.** Repositorio público
-`isaacff2000-cloud/tareas-casa`; GitHub pasó las 16 pruebas, la prueba con dos móviles (38 comprobaciones) y
-construyó la imagen (paquete ya público). **Instalada en el portátil el 22-nov a las 14:29** en el puerto 10000
-de Tailscale; el instalador comprobó antes y después que menú (443) y gastos (8443) siguen respondiendo y
-publicados, sin reiniciarlos, y ya hizo la primera copia. Pendiente: que cada uno elija «Soy …» en su móvil
-(Ana, en Safari) y la fase 2 (catálogo, historial y avisos push).
+Estado (23-nov-2026): **fase 1 y avisos push (fase 2a) construidos, probados y publicados.** Repositorio público
+`isaacff2000-cloud/tareas-casa`. **Instalada en el portátil el 22-nov a las 14:29** en el puerto 10000 de
+Tailscale; el instalador comprobó antes y después que menú (443) y gastos (8443) siguen respondiendo y
+publicados, sin reiniciarlos. El 23-nov, avisos push (versión 0.3.0): 29 pruebas y la prueba con dos móviles
+(52 comprobaciones). Pendiente: activar los avisos en cada móvil (Ana, desde el icono de la pantalla de
+inicio) y el resto de la fase 2 (tareas típicas, historial de puntos, CSV).
 Modelo principal: `gastos-casa` (versión con carpetas y arrastre). Se copia su arquitectura y su forma de
 trabajar, no su contenido.
 
@@ -271,7 +271,17 @@ semanas, una vez al mes, sueltas pendientes), a quién le toca, puntos por vez y
 toca, media de puntos planificados frente a las metas, filtro Todas/Mías/del otro, editar o reasignar desde
 ahí y recuperar las quitadas. Las 22 tareas iniciales se cargaron como datos locales (no están en el repositorio).
 
-**Fase 2 — «Historial y avisos».** Lista de **tareas típicas** para empezar en la pestaña Tareas; pestaña **Puntos** (historial); aviso de semana que no
+**Fase 2a — «Avisos push» (hecha el 23-nov, versión 0.3.0, adelantada del resto de la fase 2).** Lo del
+apartado 7 bis tal cual: los cinco avisos con sus horas, silencio de 23:00 a 08:00, sin repetir y sin mandar
+tarde, preferencias por persona (operación `avisos.preferencias`, horas de 08:00 a 22:30 cada media hora y
+retraso de 0, 15, 30 o 60 min), «Activar avisos» y «Probar aviso» en Ajustes, número en el icono y al tocar
+el aviso se abre **Hoy**. Web Push con `node:crypto` y sin dependencias (`src/webpush.js`), comprobado con el
+ejemplo oficial del RFC 8291; el «sujeto» VAPID es la dirección del repositorio (Apple exige https o mailto).
+Las horas de «faltan puntos» (viernes 18:00 y domingo 12:00) son fijas. Pruebas: 13 nuevas en
+`test/avisos.test.js` (servicio de avisos falso que descifra cada envío y una semana entera minuto a minuto) y
+la prueba con dos móviles comprueba las preferencias y que el service worker muestra un aviso entregado.
+
+**Fase 2 — «Historial y avisos» (lo que queda).** Lista de **tareas típicas** para empezar en la pestaña Tareas; pestaña **Puntos** (historial); aviso de semana que no
 llega a la meta; **notificaciones push** (apartado 7 bis); «Deshacer» en todo; CSV y descarga de copia.
 **Llega sola al portátil** por AutoUpdate: no hay que volver a PuTTY. Lo único que tendréis que hacer es
 pulsar «Activar avisos» en cada móvil.

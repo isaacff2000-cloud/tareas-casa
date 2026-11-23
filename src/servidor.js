@@ -42,7 +42,7 @@ async function leerCuerpo(req) {
  * Crea el servidor.
  * pruebas: acepta la cabecera x-quien como cuenta (solo para las pruebas; nunca en el servicio).
  */
-export function crearServidor({ base, carpetaWeb, carpetaTmp, version = 'dev', log = console.log, pruebas = false }) {
+export function crearServidor({ base, carpetaWeb, carpetaTmp, version = 'dev', log = console.log, pruebas = false, cartero = null }) {
   const clientes = new Set();
   base.avisos.on('cambio', (ev) => {
     const msg = `id: ${ev.seq}\nevent: cambio\ndata: ${JSON.stringify({ seq: ev.seq })}\n\n`;
@@ -61,6 +61,15 @@ export function crearServidor({ base, carpetaWeb, carpetaTmp, version = 'dev', l
     return { login, p };
   }
   const exigirPersona = (q) => { if (!q.p) throw new ErrorHttp(403, q.login ? 'Primero elige quién eres en la app' : 'Abre la app a través de Tailscale'); };
+
+  /** Contra webs ajenas que intenten escribir usando vuestro navegador. */
+  function soloDeLaApp(req) {
+    if (!String(req.headers['content-type'] || '').startsWith('application/json')) throw new ErrorHttp(415, 'Se espera JSON');
+    const sitio = req.headers['sec-fetch-site'];
+    if (sitio && sitio !== 'same-origin' && sitio !== 'none') throw new ErrorHttp(403, 'Petición de otra web');
+  }
+  const conCartero = () => { if (!cartero) throw new ErrorHttp(503, 'Los avisos no están disponibles'); return cartero; };
+  const texto = (v, max) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, max) : '');
 
   function modo(q) {
     if (q.p) return 'ok';
@@ -84,10 +93,7 @@ export function crearServidor({ base, carpetaWeb, carpetaTmp, version = 'dev', l
     },
 
     'POST /api/ops': async (req) => {
-      // Contra webs ajenas que intenten escribir usando vuestro navegador
-      if (!String(req.headers['content-type'] || '').startsWith('application/json')) throw new ErrorHttp(415, 'Se espera JSON');
-      const sitio = req.headers['sec-fetch-site'];
-      if (sitio && sitio !== 'same-origin' && sitio !== 'none') throw new ErrorHttp(403, 'Petición de otra web');
+      soloDeLaApp(req);
       const q = quien(req);
       if (!q.login) throw new ErrorHttp(403, 'Abre la app a través de Tailscale');
       const cuerpo = await leerCuerpo(req);
@@ -103,6 +109,45 @@ export function crearServidor({ base, carpetaWeb, carpetaTmp, version = 'dev', l
         resultados.push(...base.aplicar([o], { por: q.p, login: q.login }));
       }
       return { resultados, seq: base.seq };
+    },
+
+    // Avisos push. Las suscripciones son de cada aparato y nunca se mandan a los móviles.
+    'GET /api/avisos': (req) => {
+      const q = quien(req);
+      exigirPersona(q);
+      return { clave: cartero ? cartero.clavePublica : null, dispositivos: base.suscripciones(q.p).length };
+    },
+    'POST /api/avisos/suscribir': async (req) => {
+      soloDeLaApp(req);
+      const q = quien(req);
+      exigirPersona(q);
+      conCartero();
+      const c = await leerCuerpo(req);
+      const sus = c.suscripcion || {};
+      let u = null;
+      try { u = new URL(String(sus.endpoint || '')); } catch { /* no válida */ }
+      const clave = String((sus.keys && sus.keys.p256dh) || ''), auth = String((sus.keys && sus.keys.auth) || '');
+      if (!u || u.protocol !== 'https:' || String(sus.endpoint).length > 1000 || !/^[A-Za-z0-9_-]{80,100}$/.test(clave) || !/^[A-Za-z0-9_-]{16,32}$/.test(auth)) {
+        throw new ErrorHttp(400, 'Suscripción no válida');
+      }
+      base.guardarSuscripcion({ endpoint: u.toString(), persona: q.p, p256dh: clave, auth, dispositivo: texto(c.dispositivo, 80) || null });
+      return { ok: true, dispositivos: base.suscripciones(q.p).length };
+    },
+    'POST /api/avisos/quitar': async (req) => {
+      soloDeLaApp(req);
+      const q = quien(req);
+      exigirPersona(q);
+      const c = await leerCuerpo(req);
+      base.borrarSuscripcion(String(c.endpoint || ''), q.p);
+      return { ok: true, dispositivos: base.suscripciones(q.p).length };
+    },
+    'POST /api/avisos/probar': async (req) => {
+      soloDeLaApp(req);
+      const q = quien(req);
+      exigirPersona(q);
+      const r = await conCartero().enviarA(q.p, { titulo: 'Tareas de casa', cuerpo: 'Prueba: si ves esto, los avisos llegan a este móvil.', tag: 'prueba' });
+      if (!r.dispositivos) throw new ErrorHttp(409, 'Este móvil aún no tiene los avisos activados');
+      return r;
     },
 
     'GET /api/eventos': (req, res) => {

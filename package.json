@@ -1,6 +1,6 @@
 {
   "name": "tareas-casa",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Tareas de casa: calendario semanal de tareas y puntos en un servidor de casa",
   "type": "module",
   "private": true,

@@ -169,6 +169,15 @@ async def main():
                 for etiqueta, v in [('🛵 Domicilio', '3'), ('🍻 Salir', '9'), ('Mínimo c/u', '1')]:
                     await uno.get_by_label(etiqueta).fill(v)
                 await uno.get_by_role('button', name='Guardar metas desde esta semana').click()
+                print('Preferencias de avisos')
+                comprobar(await uno.get_by_role('heading', name='Avisos').count() == 1, 'Ajustes tiene la sección de avisos')
+                await uno.get_by_label('Lo que te queda hoy').uncheck()
+                await uno.get_by_label('Mañana toca').check()
+                await uno.locator('.pref-aviso', has_text='Mañana toca').locator('select').select_option('22:00')
+                def prefs(quien, p):
+                    return api('/api/estado', quien=quien)['datos'].get('avisos', {}).get(p, {})
+                comprobar(await esperar(lambda: prefs(UNO, 'a') == {'hoy': False, 'manana': True, 'horaManana': '22:00'}), 'Las preferencias de avisos se guardan en el servidor')
+                comprobar(prefs(DOS, 'b') == {}, 'Y son solo de quien las cambia')
                 await uno.get_by_role('button', name='Cerrar', exact=True).click()
                 comprobar(await esperar(lambda: dos.locator('.cab-sem', has_text='/ 9').count()), 'Las metas nuevas le llegan a Dos')
 
@@ -256,6 +265,36 @@ async def main():
                 await ins.reload()
                 comprobar(await esperar(lambda: ins.locator('.semaforo').count()), 'La app instalada abre sin red con lo último que tenía')
                 await ci.close()
+
+                print('Avisos push en la app instalada')
+                # El Chromium «sin pantalla» antiguo deniega siempre los avisos: aquí se usa el completo
+                bn = await p.chromium.launch(channel='chromium')
+                ca = await bn.new_context(viewport={'width': 390, 'height': 844}, extra_http_headers={'x-quien': UNO}, service_workers='allow')
+                await ca.grant_permissions(['notifications'], origin=URL)  # como pulsar «Permitir»
+                av = await ca.new_page()
+                av.on('pageerror', lambda e: errores.append(f'avisos: {e}'))
+                await av.clock.set_fixed_time('2026-11-25T12:00:00')
+                await av.goto(URL)
+                PAGINAS['uno-avisos'] = av
+                await av.wait_for_selector('.pestanas')
+                await av.evaluate('navigator.serviceWorker.ready')
+                await av.reload(); await av.wait_for_selector('.pestanas')
+                await av.get_by_role('button', name='Ajustes').click()
+                comprobar(await esperar(lambda: av.get_by_role('button', name='Activar avisos en este móvil').count()), 'La app instalada ofrece activar los avisos')
+                await av.get_by_role('button', name='Cerrar', exact=True).click()
+                # Un aviso como los del portátil, entregado al service worker: tiene que mostrarse
+                cdp = await ca.new_cdp_session(av)
+                regs = []
+                cdp.on('ServiceWorker.workerRegistrationUpdated', lambda ev: regs.extend(ev['registrations']))
+                await cdp.send('ServiceWorker.enable')
+                await esperar(lambda: len(regs) > 0)
+                await cdp.send('ServiceWorker.deliverPushMessage', {'origin': URL, 'registrationId': regs[0]['registrationId'],
+                                                                     'data': json.dumps({'titulo': 'Te quedan 2 tareas de hoy', 'cuerpo': '🍽️ Fregar, 🗑️ Basura', 'tag': 'hoy|a|2026-11-25', 'pendientes': 2})})
+                async def mostrado():
+                    return await av.evaluate("navigator.serviceWorker.ready.then((r) => r.getNotifications()).then((n) => n.map((x) => x.title + ' · ' + x.body))")
+                comprobar(await esperar(lambda: mostrado()), 'El service worker muestra el aviso que llega')
+                comprobar((await mostrado())[0] == 'Te quedan 2 tareas de hoy · 🍽️ Fregar, 🗑️ Basura', 'Con su título y su texto')
+                await bn.close()
 
                 print('Semana cerrada')
                 await cu.close(); await cd.close()

@@ -197,3 +197,15 @@ label textarea { margin-top: 6px; text-transform: none; letter-spacing: 0; }
 .par { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .resumen .par span:first-child { color: var(--suave); }
 .resumen .par b { font-size: 18px; }
+
+/* Avisos push en Ajustes */
+.prefs-avisos { margin-top: 6px; }
+.pref-aviso { border-bottom: 1px solid var(--linea); padding: 10px 0; }
+.pref-aviso:last-of-type { border-bottom: 0; }
+label.interruptor { display: flex; gap: 12px; align-items: flex-start; margin: 0; text-transform: none; letter-spacing: 0; font-size: 15px; color: var(--tinta); cursor: pointer; }
+label.interruptor input { width: 22px; height: 22px; margin: 1px 0 0; flex: none; accent-color: var(--acento); }
+label.interruptor span { display: flex; flex-direction: column; gap: 2px; }
+label.interruptor small { color: var(--suave); font-size: 13px; }
+.pref-extra { margin: 8px 0 0 34px; font-size: 14px; color: var(--suave); display: flex; align-items: center; gap: 8px; }
+select.hora-aviso { border: 1px solid var(--linea); background: var(--fondo); color: var(--tinta); border-radius: 10px; padding: 8px 10px; font-size: 15px; }
+.fila-campo > .boton { margin-top: 10px; }

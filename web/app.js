@@ -393,6 +393,93 @@ function HojaTarea({ e, yo, dia, tarea, lunesVista, fechaInicial, cerrar }) {
   </${Hoja}>`;
 }
 
+/* ---------- Avisos push ---------- */
+function b64(t) { const p = '='.repeat((4 - (t.length % 4)) % 4); const x = atob((t + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(x, (c) => c.charCodeAt(0)); }
+const esIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const instalada = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+async function pedirApi(ruta, cuerpo) {
+  const r = await fetch(ruta, cuerpo === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || `Error ${r.status}`);
+  return d;
+}
+const nombreAparato = () => { const u = navigator.userAgent; return /iphone/i.test(u) ? 'iPhone' : /ipad/i.test(u) ? 'iPad' : /android/i.test(u) ? 'Android' : 'Navegador'; };
+
+/** Activar o quitar los avisos en ESTE móvil. */
+function ActivarAvisos() {
+  const [estado, setEstado] = useState('comprobando');
+  const [ocupado, setOcupado] = useState(false);
+  async function comprobar() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) { setEstado(esIOS() && !instalada() ? 'instalar' : 'sin-soporte'); return; }
+    if (Notification.permission === 'denied') { setEstado('denegado'); return; }
+    try {
+      // Si el service worker no llega a registrarse (modo privado…), no se queda «Comprobando…» para siempre
+      const reg = await Promise.race([navigator.serviceWorker.ready, new Promise((_, mal) => setTimeout(() => mal(new Error('sin service worker')), 5000))]);
+      setEstado((await reg.pushManager.getSubscription()) && Notification.permission === 'granted' ? 'activo' : 'inactivo');
+    } catch { setEstado('sin-soporte'); }
+  }
+  useEffect(() => { comprobar(); }, []);
+  async function activar() {
+    setOcupado(true);
+    try {
+      if ((await Notification.requestPermission()) !== 'granted') { await comprobar(); return; }
+      const { clave } = await pedirApi('/api/avisos');
+      if (!clave) throw new Error('El portátil no tiene los avisos preparados');
+      const reg = await navigator.serviceWorker.ready;
+      let sus = await reg.pushManager.getSubscription();
+      if (!sus) sus = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(clave) });
+      await pedirApi('/api/avisos/suscribir', { suscripcion: sus.toJSON(), dispositivo: nombreAparato() });
+      mensaje('Avisos activados en este móvil');
+      await comprobar();
+    } catch (err) { mensaje(err.message || 'No se pudieron activar los avisos', 'error'); } finally { setOcupado(false); }
+  }
+  async function quitar() {
+    setOcupado(true);
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sus = await reg.pushManager.getSubscription();
+      if (sus) { await pedirApi('/api/avisos/quitar', { endpoint: sus.endpoint }).catch(() => {}); await sus.unsubscribe(); }
+      mensaje('Avisos quitados de este móvil');
+      await comprobar();
+    } catch (err) { mensaje(err.message, 'error'); } finally { setOcupado(false); }
+  }
+  async function probar() {
+    setOcupado(true);
+    try {
+      const r = await pedirApi('/api/avisos/probar', {});
+      mensaje(r.enviados ? 'Aviso de prueba enviado: debería llegarte en unos segundos' : 'El servicio de avisos no lo aceptó; prueba a quitar y activar otra vez', r.enviados ? 'info' : 'error');
+    } catch (err) { mensaje(err.message, 'error'); } finally { setOcupado(false); }
+  }
+  if (estado === 'comprobando') return html`<p class="nota">Comprobando…</p>`;
+  if (estado === 'instalar') return html`<p class="nota">En iPhone los avisos solo funcionan con la app instalada: en Safari pulsa Compartir › «Añadir a pantalla de inicio», ábrela desde el icono y vuelve aquí (iOS 16.4 o posterior).</p>`;
+  if (estado === 'sin-soporte') return html`<p class="nota">Este navegador no admite avisos push. En Android usa Chrome; en iPhone, la app instalada en la pantalla de inicio.</p>`;
+  if (estado === 'denegado') return html`<p class="nota">Has bloqueado los avisos para esta app. Permítelos en los ajustes del móvil y vuelve aquí.</p>`;
+  if (estado === 'inactivo') return html`<button class="boton" disabled=${ocupado} onClick=${activar}>Activar avisos en este móvil</button>`;
+  return html`<p class="nota">✓ Activados en este móvil.</p>
+    <div class="fila-campo"><button class="boton suave" disabled=${ocupado} onClick=${probar}>Probar aviso</button><button class="boton suave" disabled=${ocupado} onClick=${quitar}>Quitar</button></div>`;
+}
+
+const HORAS_AVISO = Array.from({ length: 30 }, (_, i) => { const m = 8 * 60 + i * 30; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; });
+/** Qué avisos quiere cada uno (se guardan como un cambio más y valen para todos sus móviles). */
+function PrefsAvisos({ e, yo }) {
+  const pr = N.prefsAvisos(e, yo);
+  const poner = (cambio) => hacer({ tipo: 'avisos.preferencias', ...cambio });
+  const hora = (k) => html`<select class="hora-aviso" value=${pr[k]} onChange=${(ev) => poner({ [k]: ev.target.value })}>${HORAS_AVISO.map((h) => html`<option value=${h}>${h}</option>`)}</select>`;
+  const fila = (k, titulo, detalle, extra = null) => html`<div class="pref-aviso">
+    <label class="interruptor"><input type="checkbox" checked=${pr[k]} onChange=${(ev) => poner({ [k]: ev.target.checked })} /><span><b>${titulo}</b><small>${detalle}</small></span></label>
+    ${extra && pr[k] && html`<div class="pref-extra">${extra}</div>`}
+  </div>`;
+  return html`<div class="prefs-avisos">
+    ${fila('hoy', 'Lo que te queda hoy', 'Si tienes tareas de hoy o atrasadas sin hacer.', html`a las ${hora('horaHoy')}`)}
+    ${fila('conHora', 'Tareas con hora', 'Si siguen sin hacer pasada su hora.', html`<select class="hora-aviso" value=${pr.retraso} onChange=${(ev) => poner({ retraso: Number(ev.target.value) })}>
+      ${N.RETRASOS.map((r) => html`<option value=${r}>${r ? `${r} min después` : 'a su hora'}</option>`)}</select>`)}
+    ${fila('puntos', 'Faltan puntos', 'Viernes a las 18:00 y domingo a las 12:00, si algún premio sigue bloqueado.')}
+    ${fila('devuelta', 'Te devuelven una tarea', 'Al momento, con la nota.')}
+    ${fila('manana', 'Mañana toca', 'Resumen de tus tareas de mañana.', html`a las ${hora('horaManana')}`)}
+    <p class="nota">De 23:00 a 08:00 no llega nada: una devolución de noche espera a las 08:00. Estas preferencias valen para todos tus móviles.</p>
+  </div>`;
+}
+
 /* ---------- Ajustes ---------- */
 function Ajustes({ e, yo, cerrar }) {
   const [nom, setNom] = useState(N.nombre(e, yo));
@@ -412,6 +499,9 @@ function Ajustes({ e, yo, cerrar }) {
     <div class="fila-campo">${casilla('domicilio', '🛵 Domicilio')}${casilla('salir', '🍻 Salir')}${casilla('minimo', 'Mínimo c/u')}</div>
     <button class="boton suave" onClick=${guardarMetas}>Guardar metas desde esta semana</button>
     <p class="nota">Para desbloquear un premio, los puntos de los dos juntos tienen que llegar a su meta y cada uno a su mínimo. Las semanas pasadas conservan sus metas.</p>
+    <h3>Avisos</h3>
+    <${ActivarAvisos} />
+    <${PrefsAvisos} e=${e} yo=${yo} />
     <h3>Copias</h3>
     <a class="boton suave" href="/api/copia" download>Descargar copia de seguridad</a>
     <p class="nota">El portátil guarda una copia cada noche (30 días) y una cada mes que no se borra.
@@ -435,12 +525,26 @@ function Alta({ personas }) {
 }
 
 /* ---------- App ---------- */
+let numeroIcono = null;
+/** Número de tareas que te quedan hoy en el icono de la app (si el móvil lo permite). */
+function ponerNumeroIcono(n) {
+  if (n === numeroIcono || !navigator.setAppBadge) return;
+  numeroIcono = n;
+  (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {});
+}
 const PESTANAS = [['hoy', '☀️', 'Hoy'], ['semana', '📅', 'Semana'], ['tareas', '📋', 'Tareas']];
 
 function App() {
   const s = useAlmacen();
   const dia = useHoy();
   const [tab, setTab] = useGuardado('tareas.pestana', 'hoy');
+  // Al tocar un aviso se abre «Hoy» (nueva ventana con ?hoy, o mensaje del service worker si ya estaba abierta)
+  useEffect(() => {
+    if (location.search.includes('hoy')) { setTab('hoy'); history.replaceState(null, '', '/'); }
+    const alMensaje = (ev) => { if (ev.data && ev.data.ir === 'hoy') { setHoja(null); setTab('hoy'); scrollTo(0, 0); } };
+    if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', alMensaje);
+    return () => { if ('serviceWorker' in navigator) navigator.serviceWorker.removeEventListener('message', alMensaje); };
+  }, []);
   const [lunes, setLunes] = useGuardado('tareas.semana', lunesHoy());
   const [hoja, setHoja] = useState(null); // { tipo, ... }
   const sv = s.servidor;
@@ -454,6 +558,7 @@ function App() {
   if (sv.modo === 'alta') return html`${h(Alta, { personas: sv.personas })}${aviso}`;
   const e = s.estado, yo = sv.yo;
   if (!e) return html`<main class="centro"><p>Cargando…</p></main>`;
+  ponerNumeroIcono(N.aparicionesSemana(e, N.lunesDe(dia)).filter((a) => N.leToca(a, yo) && a.fecha <= dia && ['pendiente', 'atrasada'].includes(N.estadoAp(a, dia))).length);
   const abrir = (a) => setHoja({ tipo: 'aparicion', clave: a.clave });
   const lunesVista = tab === 'semana' ? lunes : N.lunesDe(dia);
   const nueva = (f) => setHoja({ tipo: 'tarea', lunesVista: N.lunesDe(f), fechaInicial: f });

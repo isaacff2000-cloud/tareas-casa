@@ -23,11 +23,20 @@ Este repositorio solo tiene código: ningún dato, correo ni clave. Los datos vi
   puede devolverla con una nota. La semana se puede corregir hasta el martes siguiente.
 - Funciona sin cobertura (los cambios esperan y se envían al volver la red) y lo que hace uno le
   aparece al otro al momento. Lo que se está escribiendo nunca se borra por cambios del otro.
+- **Avisos en el móvil** (push), aunque la app esté cerrada: lo que te queda hoy (20:00), tareas con hora
+  que siguen sin hacer (30 min después), puntos que faltan (viernes 18:00 y domingo 12:00), tareas que te
+  devuelven (al momento) y, si lo activas, lo de mañana (21:30). Cada uno elige los suyos y sus horas en
+  Ajustes; de 23:00 a 08:00 no llega nada. En el icono sale cuántas tareas te quedan hoy.
 - Copia de seguridad cada noche (30 días) y una cada mes que no se borra.
 
 ## Cómo funciona
 
 - Node 22 sin dependencias: `node:sqlite`, `http` y avisos en directo (SSE).
+- Avisos push con Web Push implementado con `node:crypto` (`src/webpush.js`: cifrado RFC 8291 y firma VAPID
+  RFC 8292). El portátil crea sus propias claves la primera vez en `vapid.json`, en la carpeta de datos (nunca
+  en el repositorio). `src/avisos.js` decide cada minuto qué toca avisar; cada aviso tiene una clave única
+  y queda apuntado, así que nunca se repite, y un recordatorio que no se pudo mandar a su hora (portátil
+  apagado) no se manda más de 30 min tarde.
 - Los cambios llegan como **operaciones con id propio** (si llegan dos veces, se aplican una) y se
   guardan en orden. El estado se obtiene aplicándolas con las reglas de `src/nucleo.js`, el mismo
   archivo que usa el móvil. Las tareas repetidas guardan su regla, no cada día.
@@ -49,6 +58,8 @@ Convive con otras apps del portátil sin tocarlas: usa el puerto local 8789 y el
    publicadas, y se detiene si el 8789 o el 10000 ya están en uso.
 3. En cada móvil (con Tailscale activo): abrir `https://<portátil>.<tu-red>.ts.net:10000`, añadir a la
    pantalla de inicio y elegir «Soy …».
+4. Avisos: en cada móvil, Ajustes → «Activar avisos en este móvil» → permitir, y «Probar aviso». En iPhone
+   solo funciona abriendo la app desde el icono de la pantalla de inicio (iOS 16.4 o posterior).
 
 El servicio de Podman arranca solo, se reinicia si falla y se actualiza solo con cada versión nueva.
 

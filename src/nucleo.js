@@ -52,6 +52,11 @@ export const PREMIOS = [
   { id: 'salir', nombre: 'Salir', emoji: '🍻' },
 ];
 export const METAS_INICIALES = { domicilio: 20, salir: 30, minimo: 8 };
+/** Avisos push de cada persona, por defecto. Las horas van de 08:00 a 22:30 (de 23:00 a 08:00 hay silencio). */
+export const AVISOS_DEF = { hoy: true, horaHoy: '20:00', conHora: true, retraso: 30, puntos: true, devuelta: true, manana: false, horaManana: '21:30' };
+export const RETRASOS = [0, 15, 30, 60];
+export const horaAvisoOk = (h) => typeof h === 'string' && RE_HORA.test(h) && h >= '08:00' && h <= '22:30';
+export const prefsAvisos = (e, p) => ({ ...AVISOS_DEF, ...((e.avisos && e.avisos[p]) || {}) });
 export const PUNTOS_SUGERIDOS = [1, 2, 3, 5, 8];
 export const MAX_PUNTOS = 20;
 export const MAX_META = 500;
@@ -63,6 +68,7 @@ export function estadoVacio() {
     metas: {},                      // '<lunes>' → { domicilio, salir, minimo }: vale desde esa semana
     tareas: {},                     // id → { id, nombre, emoji, inicio, hasta, versiones: { '<lunes>': version } }
     apariciones: {},                // '<lunes>' → { '<tarea>|<fecha original>': { fecha?, hora?, quien?, saltada?, hecha?, devuelta? } }
+    avisos: {},                     // 'a' | 'b' → preferencias de avisos push (lo que falte, como AVISOS_DEF)
   };
 }
 /**
@@ -323,6 +329,25 @@ const OPS = {
       const x = guardada(e, o.aparicion);
       if (!x) return;
       for (const c of ['fecha', 'hora', 'quien', 'saltada']) delete x[c];
+    },
+  },
+
+  // Cada uno decide sus avisos (solo los suyos). Lo que no se manda queda como estaba.
+  'avisos.preferencias': {
+    validar(e, o) {
+      exigir(esPersona(o.por), 'Antes de cambiar nada, di quién eres');
+      let algo = false;
+      for (const k of ['hoy', 'conHora', 'puntos', 'devuelta', 'manana']) if (o[k] !== undefined) { exigir(typeof o[k] === 'boolean', 'Valor no válido'); algo = true; }
+      for (const k of ['horaHoy', 'horaManana']) if (o[k] !== undefined) { exigir(horaAvisoOk(o[k]), 'Elige una hora entre las 08:00 y las 22:30'); algo = true; }
+      if (o.retraso !== undefined) { exigir(RETRASOS.includes(o.retraso), 'Retraso no válido'); algo = true; }
+      exigir(algo, 'No hay nada que cambiar');
+    },
+    aplicar(e, o) {
+      if (!esPersona(o.por)) return;
+      if (!e.avisos) e.avisos = {};
+      const x = { ...(e.avisos[o.por] || {}) };
+      for (const k of Object.keys(AVISOS_DEF)) if (o[k] !== undefined) x[k] = o[k];
+      e.avisos[o.por] = x;
     },
   },
 
